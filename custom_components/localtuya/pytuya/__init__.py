@@ -118,6 +118,7 @@ SESS_KEY_NEG_RESP = 0x04  # FRM_SECURITY_TYPE4 # negotiate session key response
 SESS_KEY_NEG_FINISH = 0x05  # FRM_SECURITY_TYPE5 # finalize session key negotiation
 UNBIND = 0x06  # FRM_TP_UNBIND_DEV  # DATA_QUERT_CMD - issue command
 CONTROL = 0x07  # FRM_TP_CMD         # STATE_UPLOAD_CMD
+SET = 0x07  # FRM_TP_CMD         # STATE_UPLOAD_CMD
 STATUS = 0x08  # FRM_TP_STAT_REPORT # STATE_QUERY_CMD
 HEART_BEAT = 0x09  # FRM_TP_HB
 DP_QUERY = 0x0A  # 10 # FRM_QUERY_STAT      # UPDATE_START_CMD - get data points
@@ -183,13 +184,14 @@ payload_dict = {
     # Default Device
     "type_0a": {
         AP_CONFIG: {  # [BETA] Set Control Values on Device
-            "command": {"gwId": "", "devId": "", "uid": "", "t": ""},
-        },
+            "command": {"gwId": "", "devId": "", "uid": "", "t": ""}},
+        SET: {
+            "command": {"devId": "", "uid": "", "t": "", "cid": ""}},
         CONTROL: {  # Set Control Values on Device
             "command": {"devId": "", "uid": "", "t": ""},
         },
         STATUS: {  # Get Status from Device
-            "command": {"gwId": "", "devId": ""},
+            "command": {"gwId": "", "devId": "", "cid": ""},
         },
         HEART_BEAT: {"command": {"gwId": "", "devId": ""}},
         DP_QUERY: {  # Get Data Points from Device
@@ -615,6 +617,8 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                 self.seqno = msg.seqno + 1
             decoded_message = self._decode_payload(msg.payload)
             if "dps" in decoded_message:
+                if "cid" in decoded_message and decoded_message["cid"] != self.id:
+                    return
                 self.dps_cache.update(decoded_message["dps"])
 
             listener = self.listener and self.listener()
@@ -1116,6 +1120,8 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                 json_data["uid"] = uid
             else:
                 json_data["uid"] = self.id
+        if "cid" in json_data:
+            json_data["cid"] = self.id
         if "t" in json_data:
             if json_data["t"] == "int":
                 json_data["t"] = int(time.time())
